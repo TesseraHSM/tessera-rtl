@@ -1,0 +1,4 @@
+# Tessera identifier rename map for block 'hmac_drbg' (prefix: tessera_)
+module	hmac_core	tessera_hmac512_core
+module	hmac_drbg	tessera_hmac_drbg
+file	src/hmac_drbg/rtl/hmac_drbg.sv	src/hmac_drbg/rtl/tessera_hmac_drbg.sv

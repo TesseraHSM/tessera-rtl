@@ -1,0 +1,9 @@
+# Tessera identifier rename map for block 'sha256_masked' (prefix: tessera_)
+macro	CALIPTRA_SHA256_MASKED_DEFINES_PKG	TESSERA_CALIPTRA_SHA256_MASKED_DEFINES_PKG
+module	sha256_k_constants	tessera_sha256_k_constants
+module	sha256_masked_core	tessera_sha256_masked_core
+module	sha256_masked_w_mem	tessera_sha256_masked_w_mem
+package	sha256_masked_defines_pkg	tessera_sha256_masked_defines_pkg
+file	src/sha2_256_all_modes_masked/rtl/sha256_masked_core.sv	src/sha2_256_all_modes_masked/rtl/tessera_sha256_masked_core.sv
+file	src/sha2_256_all_modes_masked/rtl/sha256_masked_defines_pkg.sv	src/sha2_256_all_modes_masked/rtl/tessera_sha256_masked_defines_pkg.sv
+file	src/sha2_256_all_modes_masked/rtl/sha256_masked_w_mem.sv	src/sha2_256_all_modes_masked/rtl/tessera_sha256_masked_w_mem.sv

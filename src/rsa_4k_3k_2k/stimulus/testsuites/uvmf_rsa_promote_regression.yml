@@ -1,0 +1,30 @@
+document:
+  schema: 1.0
+
+# ---------------------------------------------------------------------------
+# Promote (L0): short, reproducible directed tests at seed 1.
+# Exclude random operations to avoid long secret-exponentiation runs.
+# RSA_kat_only_test covers 13 NIST ACVP public vectors per supported key size;
+# RSA_err_only_test checks command refusals by error index.
+# ---------------------------------------------------------------------------
+contents:
+  - generator:
+      tags: ["L0", "uvmf_rsa", "directed", "smoke_test"]
+      path: ""
+      weight: 100
+      generations: 1
+      formats:
+        generate: "reseed {template}.yml -seed 1"
+        path: "{template_basename}__1.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_kat_only_test
+  - generator:
+      tags: ["L0", "uvmf_rsa", "directed", "smoke_test"]
+      path: ""
+      weight: 100
+      generations: 1
+      formats:
+        generate: "reseed {template}.yml -seed 1"
+        path: "{template_basename}__1.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_err_only_test

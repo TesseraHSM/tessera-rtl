@@ -1,0 +1,87 @@
+uvmf:
+  interfaces:
+    "RSA_in":
+      clock: "clk"
+      reset: "rst_n"
+      reset_assertion_level: "False"
+
+      parameters:
+      - name: AHB_ADDR_WIDTH
+        type: int
+        value: '32'
+      - name: AHB_DATA_WIDTH
+        type: int
+        value: '32'
+
+      hdl_typedefs:
+      - name: rsa_in_test_transactions
+        type: enum bit[2:0] {rsa_reset_test = 3'b000, rsa_normal_test = 3'b001, rsa_otf_reset_test = 3'b010, rsa_kat_test = 3'b011}
+      - name: rsa_in_op_transactions
+        type: enum bit[2:0] {rsa_op_ldmod = 3'b001, rsa_op_modexp_pub = 3'b010, rsa_op_modexp_sec = 3'b011, rsa_op_mul = 3'b100, rsa_op_genprime = 3'b101, rsa_op_modexp_sec_crt = 3'b110 }
+
+      ports:
+      - name: rsa_rst_n
+        dir: output
+        width: '1'
+      - name: haddr
+        dir: output
+        width: AHB_ADDR_WIDTH
+      - name: hwdata
+        dir: output
+        width: AHB_DATA_WIDTH
+      - name: hsel
+        dir: output
+        width: '1'
+      - name: hwrite
+        dir: output
+        width: '1'
+      - name: hready
+        dir: output
+        width: '1'
+      - name: htrans
+        dir: output
+        width: '2'
+      - name: hsize
+        dir: output
+        width: '3'
+      - name: hrdata
+        dir: input
+        width: AHB_DATA_WIDTH
+      - name: hreadyout
+        dir: input
+        width: '1'
+      - name: transaction_flag_out_monitor
+        dir: output
+        width: '1'
+      - name: test
+        dir: output
+        width: '3'
+      - name: op
+        dir: output
+        width: '3'
+
+      response_info:
+        data: []
+        operation: 1'b0
+
+      transaction_vars:
+      - comment: ''
+        name: test
+        type: rsa_in_test_transactions
+        iscompare: 'True'
+        isrand: 'True'
+        unpacked_dimension: ''
+      - comment: ''
+        name: op
+        type: rsa_in_op_transactions
+        iscompare: 'True'
+        isrand: 'True'
+        unpacked_dimension: ''
+
+
+      transaction_constraints:
+      - name: rsa_valid_test_constraints
+        value: '{ test inside {rsa_normal_test, rsa_otf_reset_test, rsa_kat_test}; }'
+      - name: rsa_valid_op_constraints
+        value: '{ op inside {rsa_op_mul, rsa_op_ldmod, rsa_op_modexp_pub, rsa_op_modexp_sec}; }'
+

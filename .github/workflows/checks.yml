@@ -1,0 +1,115 @@
+name: vendored-block-checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: structural verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify imported filesets
+        run: ./tools/scripts/rename/verify_import.sh
+      - name: Verify UVMF filelist references resolve
+        run: ./tools/scripts/rename/check_filelists.sh
+
+  roundtrip:
+    name: rename is naming-only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone upstream caliptra-rtl
+        run: git clone --filter=blob:none https://github.com/chipsalliance/caliptra-rtl.git .upstream-cache/caliptra-rtl
+      - name: Fetch the adams-bridge submodule ABR was taken from
+        run: |
+          # ABR's sources live in a submodule, so the round-trip needs that
+          # repository too. `submodule update` lands on the gitlink; when the
+          # block is pinned ahead of it (see SUBMODULE_COMMITS) roundtrip_check
+          # fetches the branch revinfo.yml records and asks that repo instead.
+          sha=$(sed -nE 's/^[[:space:]]*commit:[[:space:]]*"([0-9a-f]+)".*/\1/p' src/mldsa_mlkem_all_levels/revinfo.yml | head -1)
+          git -C .upstream-cache/caliptra-rtl checkout --quiet --detach "$sha"
+          git -C .upstream-cache/caliptra-rtl submodule update --init --recursive
+      - name: Strip prefixes and diff against the recorded upstream commit
+        run: ./tools/scripts/rename/roundtrip_check.sh
+
+  reimport:
+    name: import is reproducible
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone upstream caliptra-rtl
+        run: git clone --filter=blob:none https://github.com/chipsalliance/caliptra-rtl.git .upstream-cache/caliptra-rtl
+      - name: Re-run the import at the recorded commit and diff
+        run: |
+          set -e
+          for r in src/*/revinfo.yml; do
+            b=$(sed -nE 's/^block:[[:space:]]*(.+)$/\1/p' "$r" | head -1)
+            sha=$(sed -nE 's/^[[:space:]]*commit:[[:space:]]*"([0-9a-f]+)".*/\1/p' "$r" | head -1)
+            # The branch is recorded, not observed: this checkout is detached,
+            # and not every block is on main (hmac256 is on future).
+            br=$(sed -nE 's/^[[:space:]]*branch:[[:space:]]*"?([^",]+)"?.*/\1/p' "$r" | head -1)
+            git -C .upstream-cache/caliptra-rtl checkout --quiet --detach "$sha"
+            # no-op for blocks that vendor nothing from a submodule
+            git -C .upstream-cache/caliptra-rtl submodule update --init --recursive --quiet
+            ./tools/scripts/rename/rename_$b.sh --upstream .upstream-cache/caliptra-rtl --dest . --branch "${br:-main}"
+          done
+          # Everything but the provenance records must be bit-identical.
+          git diff --stat -- src/ ':(exclude)src/*/revinfo.yml' | tee /tmp/rtl.diff
+          test ! -s /tmp/rtl.diff || { echo "re-import produced different RTL"; git diff -- src/ ':(exclude)src/*/revinfo.yml'; exit 1; }
+          # `git diff` reports tracked files only, so it cannot see the case
+          # that matters most here: a file that was dropped from the commit
+          # comes back from the re-import as *untracked*, leaving the diff above
+          # perfectly clean. Ask about untracked files separately, or
+          # "reproducible" would not actually imply "complete".
+          git ls-files --others --exclude-standard -- src/ | tee /tmp/rtl.new
+          test ! -s /tmp/rtl.new || { echo "re-import produced files that are missing from the commit"; exit 1; }
+          # revinfo.yml records when the import ran and which interpreters ran
+          # it. Those three keys describe the importing machine, not the import,
+          # so they are expected to move; everything else -- upstream commit,
+          # policy, toolchain fingerprint -- must not.
+          git diff -U0 -- src/*/revinfo.yml \
+            | grep -E '^[+-][^+-]' \
+            | grep -vE '^[+-][[:space:]]*(imported_at|bash|perl):' > /tmp/rev.diff || true
+          test ! -s /tmp/rev.diff || { echo "revinfo changed beyond the environment keys:"; cat /tmp/rev.diff; exit 1; }
+
+  lint:
+    name: SystemVerilog elaboration
+    runs-on: ubuntu-latest
+    # The vendored blocks depend on the shared Tessera platform library
+    # (kv_macros.svh, kv_defines_pkg, caliptra_prim_assert.sv). In this example
+    # repo that library is not vendored, so we pull it from upstream just to get
+    # a parse. Both blocks elaborate with 0 errors, 0 warnings.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install slang
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake g++ ninja-build python3
+          git clone --depth 1 https://github.com/MikePopoloski/slang.git /tmp/slang
+          cmake -S /tmp/slang -B /tmp/slang/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSLANG_INCLUDE_TESTS=OFF
+          cmake --build /tmp/slang/build -j"$(nproc)"
+          sudo cmake --install /tmp/slang/build
+      - name: Clone upstream for the shared platform library
+        run: git clone --filter=blob:none https://github.com/chipsalliance/caliptra-rtl.git .upstream-cache/caliptra-rtl
+      - name: Parse each block
+        run: |
+          set -e
+          export TESSERA_ROOT="$PWD"
+          UP="$PWD/.upstream-cache/caliptra-rtl/src"
+          # The generated filelist lives where caliptra-rtl keeps it: src/<block>/config/.
+          # It carries its own +incdir+ lines, so slang can consume it directly as a
+          # command file once ${TESSERA_ROOT} has been substituted.
+          for vf in src/*/config/tessera_*.vf; do
+            echo "== $vf =="
+            envsubst < "$vf" > /tmp/block.f
+            slang --lint-only --single-unit -Wno-nonstandard-hierarchical-cross \
+              -I "$UP/keyvault/rtl" -I "$UP/libs/rtl" -I "$UP/caliptra_prim/rtl" \
+              -I "$UP/integration/rtl/caliptra_reg" -I "$UP/integration/rtl" \
+              "$UP/libs/rtl/caliptra_sva.svh" \
+              "$UP/integration/rtl/caliptra_reg/caliptra_reg_field_defines.svh" \
+              "$UP/keyvault/rtl/kv_defines_pkg.sv" \
+              -f /tmp/block.f
+          done

@@ -1,0 +1,17 @@
+# Tessera identifier rename map for block 'sha256' (prefix: tessera_)
+module	sha256	tessera_sha256
+module	sha256_core	tessera_sha256_core
+module	sha256_ctrl	tessera_sha256_ctrl
+module	sha256_k_constants	tessera_sha256_k_constants
+module	sha256_reg	tessera_sha256_reg
+module	sha256_w_mem	tessera_sha256_w_mem
+package	sha256_params_pkg	tessera_sha256_params_pkg
+package	sha256_reg_pkg	tessera_sha256_reg_pkg
+file	src/sha2_256_all_modes/rtl/sha256.sv	src/sha2_256_all_modes/rtl/tessera_sha256.sv
+file	src/sha2_256_all_modes/rtl/sha256_core.v	src/sha2_256_all_modes/rtl/tessera_sha256_core.v
+file	src/sha2_256_all_modes/rtl/sha256_ctrl.sv	src/sha2_256_all_modes/rtl/tessera_sha256_ctrl.sv
+file	src/sha2_256_all_modes/rtl/sha256_k_constants.v	src/sha2_256_all_modes/rtl/tessera_sha256_k_constants.v
+file	src/sha2_256_all_modes/rtl/sha256_params_pkg.sv	src/sha2_256_all_modes/rtl/tessera_sha256_params_pkg.sv
+file	src/sha2_256_all_modes/rtl/sha256_reg.sv	src/sha2_256_all_modes/rtl/tessera_sha256_reg.sv
+file	src/sha2_256_all_modes/rtl/sha256_reg_pkg.sv	src/sha2_256_all_modes/rtl/tessera_sha256_reg_pkg.sv
+file	src/sha2_256_all_modes/rtl/sha256_w_mem.v	src/sha2_256_all_modes/rtl/tessera_sha256_w_mem.v

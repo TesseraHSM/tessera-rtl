@@ -1,0 +1,19 @@
+# Tessera identifier rename map for block 'hmac256' (prefix: tessera_)
+macro	HMAC256_PARAM_PKG	TESSERA_HMAC256_PARAM_PKG
+macro	HMAC256_REG_COVERGROUPS	TESSERA_HMAC256_REG_COVERGROUPS
+macro	HMAC256_REG_SAMPLE	TESSERA_HMAC256_REG_SAMPLE
+module	hmac256	tessera_hmac256
+module	hmac256_core	tessera_hmac256_core
+module	hmac256_ctrl	tessera_hmac256_ctrl
+module	hmac256_reg	tessera_hmac256_reg
+module	sha256_masked_core	tessera_sha256_masked_core
+package	hmac256_param_pkg	tessera_hmac256_param_pkg
+package	hmac256_reg_pkg	tessera_hmac256_reg_pkg
+file	src/hmac_256/rtl/hmac256.sv	src/hmac_256/rtl/tessera_hmac256.sv
+file	src/hmac_256/rtl/hmac256_core.sv	src/hmac_256/rtl/tessera_hmac256_core.sv
+file	src/hmac_256/rtl/hmac256_ctrl.sv	src/hmac_256/rtl/tessera_hmac256_ctrl.sv
+file	src/hmac_256/rtl/hmac256_param_pkg.sv	src/hmac_256/rtl/tessera_hmac256_param_pkg.sv
+file	src/hmac_256/rtl/hmac256_reg.sv	src/hmac_256/rtl/tessera_hmac256_reg.sv
+file	src/hmac_256/rtl/hmac256_reg_covergroups.svh	src/hmac_256/rtl/tessera_hmac256_reg_covergroups.svh
+file	src/hmac_256/rtl/hmac256_reg_pkg.sv	src/hmac_256/rtl/tessera_hmac256_reg_pkg.sv
+file	src/hmac_256/rtl/hmac256_reg_sample.svh	src/hmac_256/rtl/tessera_hmac256_reg_sample.svh

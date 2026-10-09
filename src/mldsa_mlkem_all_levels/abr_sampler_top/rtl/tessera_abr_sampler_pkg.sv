@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//======================================================================
+//
+// tessera_abr_sampler_pkg.sv
+// --------
+// required parameters for sampler top
+//
+//======================================================================
+
+`ifndef TESSERA_ABR_SAMPLER_PKG
+`define TESSERA_ABR_SAMPLER_PKG
+
+package tessera_abr_sampler_pkg;
+  import tessera_abr_params_pkg::*;
+
+  parameter ABR_COEFF_CNT = 256;
+
+//SHA3 Configuration
+// Keccak Rounds per clock
+  parameter RoundsPerClock = 2;
+
+//Sampler Configurations
+//MLDSA Rej Sampler
+  parameter MLDSA_REJS_NUM_SAMPLERS     = 5;
+  parameter MLDSA_REJS_SAMPLE_W         = 24;
+
+//MLKEM Rej Sampler
+  parameter MLKEM_REJS_NUM_SAMPLERS     = 10;
+  parameter MLKEM_REJS_SAMPLE_W         = 12;
+
+  //Rej Sampler common params
+  //MLDSA and MLKEM output rate should match
+  parameter REJS_VLD_SAMPLES      = COEFF_PER_CLK;
+  parameter REJS_PISO_BUFFER_W    = 1440;
+  parameter REJS_PISO_INPUT_RATE  = 1344;
+  parameter REJS_PISO_OUTPUT_RATE = MLDSA_REJS_NUM_SAMPLERS*MLDSA_REJS_SAMPLE_W;
+
+//Rej Bounded
+  parameter REJB_NUM_SAMPLERS     = 8;
+  parameter REJB_SAMPLE_W         = 4;
+  parameter REJB_VLD_SAMPLES      = COEFF_PER_CLK;
+  parameter REJB_VLD_SAMPLES_W    = 24;
+  parameter REJB_VALUE            = 15;
+  parameter REJB_VLD_SAMPLE_W     = $clog2(REJB_VALUE);
+  parameter REJB_PISO_BUFFER_W    = 1334;
+  parameter REJB_PISO_INPUT_RATE  = 1088;
+  parameter REJB_PISO_OUTPUT_RATE = REJB_NUM_SAMPLERS*REJB_SAMPLE_W;
+  // Hold rej_bounded on the FIRST Keccak state under masked SHAKE to make it constant-time.
+  parameter REJB_MASKED_KECCAK_HOLD_MASKED = 59;
+  //ML-DSA-65 uses eta = 4. FIPS 204 Alg. 15 accepts a half byte only when it is
+  //< 9, so the acceptance probability drops from 15/16 to 9/16 and eight parallel
+  //samplers deliver only 4.5 coefficients per cycle against a fixed downstream
+  //demand of COEFF_PER_CLK = 4. That margin is too thin to keep the drain
+  //demand limited, and the loop length then varies with the seed - a direct
+  //timing leak on s1/s2. Twenty samplers restore 11.25 accepts per cycle, i.e.
+  //a 2.8x margin against the 1.875x the category-5 eta = 2 path enjoys.
+  //See docs/AdamsBridge_MLDSA.md, "Masked-Keccak PISO stall (constant-time)".
+  parameter REJB_NUM_SAMPLERS_ETA4      = 20;
+  parameter REJB_NUM_SAMPLERS_MAX       = REJB_NUM_SAMPLERS_ETA4;
+  parameter REJB_PISO_OUTPUT_RATE_ETA4  = REJB_NUM_SAMPLERS_ETA4*REJB_SAMPLE_W;
+  parameter REJB_PISO_OUTPUT_RATE_MAX   = REJB_NUM_SAMPLERS_MAX*REJB_SAMPLE_W;
+  //The eta = 4 drain is slower per PISO word, so the first Keccak state must be
+  //held longer before the second one is guaranteed to be in flight.
+  parameter REJB_MASKED_KECCAK_HOLD_ETA4 = 85;
+  parameter REJB_MASKED_KECCAK_HOLD_MAX  = REJB_MASKED_KECCAK_HOLD_ETA4;
+  //Lane count and HOLD together make the eta = 4 activation length constant only
+  //while two Keccak states (544 half bytes) cover the 256 coefficients a
+  //polynomial needs. At p = 9/16 that fails with probability
+  //Pr[Bin(544, 9/16) < 256] = 7.0e-6, and the rare polynomial that needs a third
+  //squeeze runs about a masked permutation longer - a secret dependent length.
+  //Deepening the PISO does not fix this: state n is not available before
+  //111 + 109*(n-1) sampler cycles whatever the buffer depth, and the drain has
+  //ended by 260. The only closure is time, so the eta = 4 activation is held to a
+  //compile time constant observable length.
+  //
+  //Sizing. The worst observable two squeeze length is 261 cycles (cycle accurate
+  //model, tools/rejb_model.py). Each further squeeze can add at most one masked
+  //permutation, K_masked = 109. Covering two further squeezes therefore needs
+  //  261 + 2*109 = 479
+  //cycles, which also bounds the model's measured four squeeze worst case of 460.
+  //Residual after padding is Pr[Bin(1088, 9/16) < 256] = 1.2e-107 = 2^-355 per
+  //polynomial, 2^-352 per ML-DSA-65 keygen (11 RejBounded polynomials) - see
+  //tools/rejb_exact.py. That is far below the 2^-92 per keygen bar the
+  //category-5 HOLD was itself signed off against, and unlike a three squeeze pad
+  //it does not depend on a Monte Carlo maximum being exact.
+  //
+  //Cost is +219 cycles per RejBounded polynomial, ~+2.4k cycles per ML-DSA-65
+  //keygen only. RejBounded is not used in signing - s1/s2 are read from sk - so
+  //signature latency is unchanged. See docs/AdamsBridge_MLDSA.md.
+  parameter REJB_ETA4_FIXED_LEN = 479;
+
+//Exp Mask
+  parameter EXP_NUM_SAMPLERS     = 4;
+  parameter EXP_SAMPLE_W         = 20;
+  parameter EXP_VLD_SAMPLES      = COEFF_PER_CLK;
+  parameter EXP_VLD_SAMPLE_W     = 24;
+  parameter EXP_PISO_BUFFER_W    = 1152;
+  parameter EXP_PISO_INPUT_RATE  = 1088;
+  parameter EXP_PISO_OUTPUT_RATE = EXP_NUM_SAMPLERS*EXP_SAMPLE_W;
+  //ML-DSA-44 uses gamma1 = 2^17, so ExpandMask consumes 18 bits per coefficient
+  //instead of 20 (FIPS 204 Alg. 34, bitlen(2*gamma1-1)).
+  parameter EXP_SAMPLE_W_17         = 18;
+  parameter EXP_PISO_OUTPUT_RATE_17 = EXP_NUM_SAMPLERS*EXP_SAMPLE_W_17;
+
+//Sample In Ball
+  parameter SIB_NUM_SAMPLERS     = 4;
+  parameter SIB_SAMPLE_W         = 8;
+  parameter SIB_TAU              = 60;
+  parameter SIB_PISO_BUFFER_W    = 1344;
+  parameter SIB_PISO_INPUT_RATE  = 1088;
+  parameter SIB_PISO_OUTPUT_RATE = SIB_NUM_SAMPLERS*SIB_SAMPLE_W;
+
+  //CBD Sampler
+  parameter CBD_NUM_SAMPLERS     = COEFF_PER_CLK;
+  parameter CBD_SAMPLE_W         = 2*MLKEM_ETA;
+  parameter CBD_VLD_SAMPLES      = COEFF_PER_CLK;
+  parameter CBD_PISO_BUFFER_W    = 1344;
+  parameter CBD_PISO_INPUT_RATE  = 1088;
+  parameter CBD_PISO_OUTPUT_RATE = CBD_NUM_SAMPLERS*CBD_SAMPLE_W;
+  //ML-KEM-512 uses eta1 = 3, so PRF output is consumed 6 bits per coefficient
+  //instead of 4. Only the PISO output rate changes; the buffer is shared.
+  parameter CBD_SAMPLE_W_MAX       = 2*MLKEM_ETA1_MAX;
+  parameter CBD_SAMPLE_W_3         = 6;
+  parameter CBD_PISO_OUTPUT_RATE_3 = CBD_NUM_SAMPLERS*CBD_SAMPLE_W_3;
+
+
+  //declare fsm state variables
+  typedef enum logic [2:0] {
+    ABR_SAMPLER_IDLE   = 3'b000,
+    ABR_SAMPLER_PROC   = 3'b001,
+    ABR_SAMPLER_WAIT   = 3'b010,
+    ABR_SAMPLER_RUN    = 3'b011,
+    ABR_SAMPLER_DONE   = 3'b100,
+    //Appended, never renumbered. Only reachable when an eta = 4 RejBounded
+    //activation has to be stretched to its constant observable length.
+    //Unreachable - and therefore collapsed in synthesis - at category 5.
+    ABR_SAMPLER_PAD    = 3'b101
+  } abr_sampler_fsm_state_e;
+
+  typedef enum logic [2:0] {
+    ABR_REJS_MODE,
+    ABR_REJB_MODE,
+    ABR_EXP_MODE,
+    ABR_SIB_MODE,
+    ABR_CBD_MODE,
+    ABR_EXP17_MODE,
+    ABR_CBD3_MODE,
+    ABR_REJB4_MODE
+  } abr_piso_mode_e;
+
+  //common structures
+  typedef enum logic [4:0] {
+    ABR_SAMPLER_NONE,
+    //SHA/SHAKE only modes
+    ABR_SHAKE256,
+    ABR_SHAKE128,
+    ABR_SHA512,
+    ABR_SHA256,
+    //SAMPLER MODES
+    MLDSA_REJ_SAMPLER,
+    MLKEM_REJ_SAMPLER,
+    ABR_EXP_MASK,
+    ABR_REJ_BOUNDED,
+    ABR_SAMPLE_IN_BALL,
+    ABR_CBD_SAMPLER
+  } abr_sampler_mode_e;
+
+endpackage
+
+`endif

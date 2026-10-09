@@ -1,0 +1,78 @@
+# Tessera vendored-block provenance record -- GENERATED, do not edit by hand.
+#
+# To review what changed upstream since this import:
+#   git -C <caliptra-rtl> log --oneline b9ac0e466758d6ba8eac562d8acc3bc5483a2f6a..origin/main -- src/aes/rtl src/aes/coverage 
+#
+block: aes
+prefix: "tessera_"
+macro_prefix: "TESSERA_"
+imported_at: "2026-10-08T20:57:28Z"
+
+upstream:
+  repo: "https://github.com/chipsalliance/caliptra-rtl.git"
+  branch: "main"
+  commit: "b9ac0e466758d6ba8eac562d8acc3bc5483a2f6a"
+  commit_date: "2026-10-06T08:53:38-07:00"
+  commit_subject: "Feat/stash bank rfc 673 (#1395)"
+  working_tree_dirty: false
+  subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/aes/rtl", tessera: "src/aes_all_modes/rtl" }
+    - { upstream: "src/aes/coverage", tessera: "src/aes_all_modes/coverage" }
+  compile_order_from: src/aes/config/aes.vf
+
+importer:
+  script: tools/scripts/rename/rename_aes.sh
+  library_version: "2.1.1"
+  toolchain_fingerprint: "dbbbb57676f85f3cf1d4d6d6b831f58d23fbee6862fc6c9089be068a2fc28c59"
+  bash: "4.4.20(1)-release"
+  perl: "v5.26.3"
+
+policy:
+  rename_scope: "synthesized design material only"
+  stem_renames:  # block-name stems rewritten under the prefix (repo-wide)
+    - "hmac=hmac512"
+  stem_keep:  # names that merely share the leading token and keep it
+    - "hmac_drbg"
+  synth_subtrees:  # identifiers declared here are renamed; everything else only references them
+    - "src/aes_all_modes/rtl"
+  excluded_globs:
+    - "*_reg_uvm.sv"
+    - "*.rdl"
+  artifact_globs:  # build/sim outputs, regenerated not vendored
+    - "*.ucdb"
+    - "*.exe"
+    - "*.o"
+    - "*.a"
+    - "*.so"
+    - "*.pyc"
+    - "*.wlf"
+    - "*.vstf"
+    - "*.vcd"
+    - "*.fsdb"
+  cross_block_identifiers:
+    []
+  environment_config_macros:
+    []
+  generator_inputs:  # fed to a code generator, must stay byte-identical to upstream
+    []
+  keep_list:  # shared Tessera platform identifiers, deliberately NOT prefixed
+    - "kv_defines_pkg"
+    - "kv_read_t"
+    - "kv_write_t"
+    - "kv_error_code_e"
+    - "uvm_pkg"
+
+artifacts:
+  block_dir: src/aes_all_modes
+  source_dirs:
+    - src/aes_all_modes/rtl
+    - src/aes_all_modes/coverage
+  collateral_dirs: []
+  filelist: src/aes_all_modes/config/tessera_aes.vf
+  rename_map: src/aes_all_modes/revinfo.map
+  generated:  # produced by the import; no upstream counterpart
+    - src/aes_all_modes/config/tessera_aes.vf
+
+content:  # engine-level summary; the file list is the committed tree itself
+  source_files: 45
+  renamed_files: 46

@@ -1,0 +1,164 @@
+# SPDX-License-Identifier: Apache-2.0
+
+---
+provides: [tessera_rsa_top]
+schema_version: 2.4.0
+requires:
+  - libs
+  - caliptra_prim
+targets:
+  rtl:
+    directories: [$COMPILE_ROOT/rtl]
+    files:
+      - $COMPILE_ROOT/rtl/tessera_rsa_params_pkg.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_mult_dsp.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_mult_low.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_pe_first.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_pe.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_pe_final.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_pe_lane1_boundary.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_montgomerymultiplier.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_modexp.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_mont_const.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_crt_garner.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_crt_ctrl.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_reg_pkg.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_reg.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_ctrl.sv
+      - $COMPILE_ROOT/rtl/tessera_rsa_top.sv
+    tops: [tessera_rsa_top]
+  rtl_lint:
+    directories: []
+---
+provides: [rsa_montgomerymultiplier_tb]
+schema_version: 2.4.0
+requires:
+  - tessera_rsa_top
+targets:
+  tb:
+    directories:
+      - $COMPILE_ROOT/tb
+    files:
+      - $COMPILE_ROOT/tb/rsa_montgomerymultiplier_tb.sv
+    tops: [rsa_montgomerymultiplier_tb]
+  sim:
+    pre_exec: 'echo "[PRE-EXEC] Copying RSA Mont multiplication test vectors to $PWD" && cp $COMPILE_ROOT/tb/test_vectors/rsa_mm_test_vectors*.hex $COMPILE_ROOT/tb/test_vectors/rsa_mm_chain_vectors*.hex $COMPILE_ROOT/tb/test_vectors/rsa_mm_smallmod_vectors*.hex .'
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        - '-noinherit_timescale=1ns/1ps'
+---
+provides: [rsa_crt_garner_tb]
+schema_version: 2.4.0
+requires:
+  - tessera_rsa_top
+targets:
+  tb:
+    directories:
+      - $COMPILE_ROOT/tb
+    files:
+      - $COMPILE_ROOT/tb/rsa_crt_garner_tb.sv
+    tops: [rsa_crt_garner_tb]
+  sim:
+    pre_exec: 'echo "[PRE-EXEC] Copying RSA CRT Garner test vectors to $PWD" && cp $COMPILE_ROOT/tb/test_vectors/rsa_crt_garner_vectors*.hex .'
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        - '-noinherit_timescale=1ns/1ps'
+---
+provides: [rsa_modexp_tb]
+schema_version: 2.4.0
+requires:
+  - tessera_rsa_top
+targets:
+  tb:
+    directories:
+      - $COMPILE_ROOT/tb
+    files:
+      - $COMPILE_ROOT/tb/rsa_modexp_tb.sv
+    tops: [rsa_modexp_tb]
+  sim:
+    pre_exec: 'echo "[PRE-EXEC] Copying RSA modexp test vectors to $PWD" && cp $COMPILE_ROOT/tb/test_vectors/rsa_modexp_*.hex .'
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        - '-noinherit_timescale=1ns/1ps'
+---
+provides: [rsa_mont_const_tb]
+schema_version: 2.4.0
+requires:
+  - tessera_rsa_top
+targets:
+  tb:
+    directories:
+      - $COMPILE_ROOT/tb
+    files:
+      - $COMPILE_ROOT/tb/rsa_mont_const_tb.sv
+    tops: [rsa_mont_const_tb]
+  sim:
+    pre_exec: 'echo "[PRE-EXEC] Copying RSA mont-const test vectors to $PWD" && cp $COMPILE_ROOT/tb/test_vectors/rsa_mont_const_vectors*.hex .'
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        - '-noinherit_timescale=1ns/1ps'
+---
+provides: [rsa_top_tb]
+schema_version: 2.4.0
+requires:
+  - tessera_rsa_top
+targets:
+  tb:
+    directories:
+      - $COMPILE_ROOT/tb
+    files:
+      - $COMPILE_ROOT/tb/rsa_top_tb.sv
+    tops: [rsa_top_tb]
+  sim:
+    pre_exec: 'echo "[PRE-EXEC] Copying RSA modexp test vectors to $PWD" && cp $COMPILE_ROOT/tb/test_vectors/rsa_modexp_*.hex $COMPILE_ROOT/tb/test_vectors/rsa_crt_vectors_*.hex .'
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        - '-noinherit_timescale=1ns/1ps'
+---
+# ----------------------------------------------------------------------------
+# Optional functional coverage, following ecc_coverage.
+# Covergroups also require FCOV, avoiding sampling overhead in non-coverage runs.
+# ----------------------------------------------------------------------------
+provides: [rsa_coverage]
+schema_version: 2.4.0
+requires:
+  - tessera_rsa_top
+targets:
+  tb:
+    directories:
+      - $COMPILE_ROOT/coverage
+    files:
+      - $COMPILE_ROOT/coverage/rsa_top_cov_if.sv
+      - $COMPILE_ROOT/coverage/rsa_top_cov_bind.sv
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - '-noinherit_timescale=1ns/1ps'

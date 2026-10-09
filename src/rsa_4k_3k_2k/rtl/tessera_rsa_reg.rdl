@@ -1,0 +1,657 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//======================================================================
+//
+// RSA engine register map.
+//
+// Fixed 8 KiB aperture with RSA-4096 operand regions.  Shorter operands are
+// right-aligned, most significant word first.
+//
+// Access classes:
+//   PUB  sw=rw             -- N, A, B, E
+//   SEC  sw=w, hw=r, hwclr -- D, DP, DQ, P, Q, QINV
+//   RES  sw=r, hw=w, hwclr -- RESULT, PRODUCT
+// Internal state (modulus context, ladder temporaries) has no address.
+//
+// Private exponents have separate regions and storage:
+//
+//   0x0C00  RSA_D [132]  d  for MODEXP_SEC, plus 64 bits of blinding headroom
+//   0x1C00  RSA_DP[64]   dp for MODEXP_SEC_CRT
+//   0x1D00  RSA_DQ[64]   dq for MODEXP_SEC_CRT
+//
+// p, q and qinv also have separate storage.
+//
+// TODO: Share SEC storage for mutually exclusive d/dp/dq behind their separate
+// addresses to save 128 registers; use `external`, not `alias`.
+//
+// Command and operand writes require STATUS.READY; busy writes are silently
+// dropped.  Firmware must poll READY.  ZEROIZE remains available while busy.
+
+addrmap tessera_rsa_reg {
+    desc="address maps for rsa register space";
+
+    addressing = regalign;
+    lsb0 = true;
+
+    default hw = na;
+    signal {activelow; async; cpuif_reset; field_reset;} reset_b;
+    signal {activelow; async;} hard_reset_b;
+    signal {} rsa_ready;
+    // Accept CRT key writes only when CRT is built and the core is idle.
+    signal {} rsa_crt_key_we;
+
+    /* -----------------------
+    * Register definitions
+    * ----------------------- */
+
+    /* ---- RSA Component Name ---- */
+    reg {
+        name = "RSA component name register type definition";
+        desc = "Two 32-bit read-only registers representing of the name
+                of RSA component.";
+
+        default sw = r;
+        default hw = w;
+        field {desc = "Name field";} NAME[32];
+
+    } RSA_NAME[2] @0x00000000;
+
+    /* ---- RSA Component Version ---- */
+    reg {
+        name = "RSA component version register type definition";
+        desc = "Two 32-bit read-only registers representing of the version
+                of RSA component.";
+
+        default sw = r;
+        default hw = w;
+        field {desc = "Version field";} VERSION[32];
+
+    } RSA_VERSION[2] @0x00000008;
+
+    /* ---- RSA Component Control ---- */
+    reg {
+        name = "RSA CTRL";
+        desc = "RSA component control register type definition";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "Command field.  Bit 3 is the CRT modifier, not part of
+                the opcode.
+                [br]             0000 NONE
+                [br]             0001 LDMOD -- latch RSA_MODULUS and derive the
+                                 modulus context.  Required before any MODEXP.
+                                 The context survives until the next LDMOD, a
+                                 ZEROIZE or a reset.
+                [br]             0010 MODEXP_PUB -- RSA_A ^ RSA_E mod N.  Ladder
+                                 length is derived on chip from RSA_E.
+                [br]             0011 MODEXP_SEC -- RSA_A ^ RSA_D mod N, forced
+                                 full width.
+                [br]             0101 GENPRIME -- RESERVED, NOT IMPLEMENTED.
+                [br]             1001 LDMOD_CRT -- RESERVED, NOT IMPLEMENTED.
+                                 A plain LDMOD builds the CRT contexts today.
+                [br]             1011 MODEXP_SEC_CRT -- private exponentiation by
+                                 the Chinese Remainder Theorem, using p, q, dp,
+                                 dq and qinv instead of d.  Requires
+                                 CONFIG.CRT_SUPPORTED = 1, else STATUS.ERROR
+                                 bit 4.  Never falls back to MODEXP_SEC: the two
+                                 read different key material.
+                [br] All other encodings are reserved and rejected with
+                     STATUS.ERROR bit 0.
+                [br] Self-clearing: hardware erases the field after each write.";
+                swwe = rsa_ready; hwclr;} CTRL[4] = 4'b0;
+        field {desc = "Unreduced multiply: RSA_A * RSA_B into RSA_PRODUCT.
+                                Carried on its own bit because it is the one
+                                command that does not reduce and does not use the
+                                modulus context.
+                                [br] Self-clearing.";
+                swwe = rsa_ready; hwclr;} MUL = 1'b0;
+        field {desc = "Key length this command runs at:
+                                [br]             00 for 2048
+                                [br]             01 for 3072
+                                [br]             10 for 4096
+                                [br]             11 reserved
+                                [br] Absolute, and carried here rather than in
+                                CONFIG so the width is declared by the write that
+                                starts the command.  Self-clearing, so a command
+                                cannot inherit a width.
+                                [br] 1024 is not offered.  A length this instance
+                                cannot run, and the reserved encoding, are
+                                rejected with STATUS.ERROR bit 8.";
+                swwe = rsa_ready; hwclr;} KEY_LEN[2] = 2'b0;
+        field {desc = "Zeroize all internal registers: Zeroize all internal registers
+                                after RSA process, to avoid SCA leakage.
+                                [br] Software write generates only a single-cycle pulse on the
+                                hardware interface and then will be erased"; singlepulse;} ZEROIZE = 1'b0;
+
+    } RSA_CTRL @0x00000010;
+
+    /* ---- RSA Component Status ---- */
+    reg {
+        name = "RSA STATUS";
+        desc = "RSA component status register type definition";
+
+        default sw = r;
+        default hw = w;
+        default resetsignal = reset_b;
+        field {desc = "Status ready bit: Indicates if the core is ready to take
+                                a control command and process the block.";} READY = 1'b0;
+        field {desc = "Status valid bit: Indicates that the last command
+                                completed.  For commands that produce a result
+                                (MODEXP_PUB / MODEXP_SEC write RSA_RESULT, MUL
+                                writes RSA_PRODUCT) the corresponding aperture
+                                is valid.  LDMOD produces no result and clears
+                                BOTH apertures on acceptance, so a read of
+                                RESULT or PRODUCT after LDMOD returns zero
+                                rather than a stale value.  Cleared whenever a
+                                new command is accepted or rejected.";} VALID = 1'b0;
+        field {desc = "Error field.  Non-zero if the last command was rejected
+                                or could not complete.  Each bit is tagged with
+                                whether it reflects a property of RSA itself or a
+                                restriction of this implementation.
+                                [br] bit 0 [IMPL] unsupported command encoding.
+                                [br] bit 1 [IMPL] no modulus context -- LDMOD has
+                                     not been run since reset or ZEROIZE.
+                                [br] bit 2 [RSA] modulus is even or less than 3,
+                                     so it is not a usable RSA modulus.
+                                [br] bit 3 [IMPL] base does not fit the declared
+                                     key length.  A base merely greater than the
+                                     modulus is NOT an error -- hardware reduces
+                                     it with one conditional subtract, which
+                                     always suffices because the base is bounded
+                                     by 2^KEY_LEN and the modulus has its top bit
+                                     set at that length, so base < 2n.
+                                [br] bit 4 [IMPL] MODEXP_SEC_CRT requested but the
+                                     CRT datapath is not built in this instance.
+                                [br] bit 5 [IMPL] top RADIX bits of the modulus are
+                                     all ones.  Intermediate products are retired
+                                     unreduced and bounded by n*(1+2^-RADIX), which
+                                     must stay below 2^KEY_LEN.  Removable only by
+                                     widening the array by one word, which costs
+                                     about 3% on every operation; a modulus hits
+                                     this with probability about 2^-RADIX.
+                                [br] bit 6 unused.
+                                [br] bit 7 [RSA] CRT key material rejected before
+                                     the operation started: p or q is not an odd
+                                     value of the declared half width with its top
+                                     bit set, or qinv >= p.
+                                [br] bit 8 [IMPL] CTRL.KEY_LEN selects a length
+                                     this instance cannot run, or the reserved
+                                     encoding, or a length that disagrees with the
+                                     one the current modulus context was built at.
+                                [br] bit 9 [RSA] the modulus does not match the
+                                     declared key length -- a bit is set above it,
+                                     or its most significant bit is clear.
+                                [br] bit 10 [RSA] the verification exponentiation
+                                     after a CRT operation did not reproduce the
+                                     input, so the result was withheld and forced
+                                     to zero.  A faulted CRT result leaks the
+                                     factorization, so it is never released.";}
+                ERROR[16] = 16'b0;
+        field {desc = "Modulus context valid.  Reads 1 once an LDMOD has
+                                completed, 0 after reset, after ZEROIZE, and
+                                after a rejected LDMOD.  A MODEXP issued while
+                                this is 0 is refused with ERROR bit 1.";}
+                MODULUS_VALID = 1'b0;
+
+    } RSA_STATUS @0x00000018;
+
+    /* ---- RSA Component Config ---- */
+    reg {
+        name = "RSA CONFIG";
+        desc = "RSA component configuration register type definition";
+
+        default resetsignal = reset_b;
+        field {desc = "Reads 1 when the Chinese Remainder Theorem private-key
+                                datapath is present in this instance, 0 when it was
+                                compiled out.  This is a build-time property
+                                (RSA_CRT_ENABLE_CONFIG in tessera_rsa_params_pkg), reported
+                                here so that firmware can discover it rather than
+                                having to know the integration parameters.
+                                [br] When this reads 0, MODEXP_SEC_CRT is always
+                                rejected and firmware must use MODEXP_SEC.";
+                sw = r; hw = w;} CRT_SUPPORTED = 1'b0;
+
+    } RSA_CONFIG @0x0000001C;
+
+    /* ---- RSA Modulus ---- */
+    reg {
+        name = "RSA MODULUS";
+        desc = "Modulus N, big-endian, ordinary integer domain -- software does
+                no pre-conditioning.  LDMOD latches it and derives the internal
+                reduction constants.";
+
+        default sw = rw;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "Modulus field"; swwe = rsa_ready; hwclr;} MODULUS[32] = 32'b0;
+
+    } RSA_MODULUS[128] @0x00000400;
+
+    /* ---- RSA Operand A ---- */
+    reg {
+        name = "RSA A";
+        desc = "Operand A, big-endian.  Base of a MODEXP: the message when
+                signing, the signature when verifying.  Must be less than N.";
+
+        default sw = rw;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "Operand A field"; swwe = rsa_ready; hwclr;} A[32] = 32'b0;
+
+    } RSA_A[128] @0x00000600;
+
+    /* ---- RSA Operand B ---- */
+    reg {
+        name = "RSA B";
+        desc = "Operand B, big-endian.  Second operand of MUL only.";
+
+        default sw = rw;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "Operand B field"; swwe = rsa_ready; hwclr;} B[32] = 32'b0;
+
+    } RSA_B[128] @0x00000800;
+
+    /* ---- RSA Public Exponent ---- */
+    reg {
+        name = "RSA E";
+        desc = "Public exponent e, big-endian.  Used by MODEXP_PUB and by the
+                verification exponentiation of MODEXP_SEC_CRT.";
+
+        default sw = rw;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "Public exponent field"; swwe = rsa_ready; hwclr;} E[32] = 32'b0;
+
+    } RSA_E[4] @0x00000A00;
+
+    /* ---- RSA Private Exponent ---- */
+    reg {
+        name = "RSA D";
+        desc = "Private exponent d, big-endian.  Used by MODEXP_SEC.
+                [br] 64 bits wider than the key so that exponent blinding can be
+                enabled without widening a port after tape-out.
+                [br] Write-only, SEC class: reads back as zero, cleared by
+                ZEROIZE, by a debug unlock or scan mode switch, and by reset.";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "Private exponent field"; swwe = rsa_ready; hwclr;} D[32] = 32'b0;
+
+    } RSA_D[132] @0x00000C00;
+
+    /* ---- CRT private key material ----------------------------------------
+     *
+     * Half-width p, q, dp, dq and qinv are all secret key material (SEC class).
+     * ---------------------------------------------------------------------- */
+
+    /* ---- RSA CRT Prime P ---- */
+    reg {
+        name = "RSA P";
+        desc = "CRT prime p, big-endian, half the key width.  Write-only, SEC
+                class: reads back as zero, cleared by ZEROIZE, debug unlock or
+                scan-mode switch, and reset.";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "CRT prime p field"; swwe = rsa_crt_key_we; hwclr;} P[32] = 32'b0;
+
+    } RSA_P[64] @0x00001600;
+
+    /* ---- RSA CRT Prime Q ---- */
+    reg {
+        name = "RSA Q";
+        desc = "CRT prime q, big-endian, half the key width.  Write-only, SEC
+                class: reads back as zero, cleared by ZEROIZE, debug unlock or
+                scan-mode switch, and reset.";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "CRT prime q field"; swwe = rsa_crt_key_we; hwclr;} Q[32] = 32'b0;
+
+    } RSA_Q[64] @0x00001700;
+
+    /* ---- RSA Result ---- */
+    reg {
+        name = "RSA RESULT";
+        desc = "Result, big-endian.  Written by hardware at the end of a MODEXP
+                and readable once STATUS.VALID is set.";
+
+        default sw = r;
+        default hw = w;
+        default we = true;
+        default resetsignal = reset_b;
+        field {desc = "Result field"; hwclr;} RESULT[32] = 32'b0;
+
+    } RSA_RESULT[128] @0x00001000;
+
+    /* ---- RSA Product ---- */
+    reg {
+        name = "RSA PRODUCT";
+        desc = "Unreduced product A*B, big-endian, twice the key width.  Written
+                at the end of MUL.  MUL neither uses nor disturbs the modulus
+                context.";
+
+        default sw = r;
+        default hw = w;
+        default we = true;
+        default resetsignal = reset_b;
+        field {desc = "Product field"; hwclr;} PRODUCT[32] = 32'b0;
+
+    } RSA_PRODUCT[256] @0x00001200;
+
+    ////////////////////////////////////////////////////////////////
+    // Interrupts
+    /* -----------------------
+     * Interrupt register file
+     * ----------------------- */
+
+    // Separate errors from normal notifications so software can prioritize them.
+    regfile intr_block_t {
+
+
+        /* -----------------------
+         * Default properties for Register File
+         * ----------------------- */
+
+        name = "Interrupt Register Block";
+        desc = "Set of registers to implement interrupt functionality
+                for RSA";
+
+        default regwidth = 32; // reg property
+        default accesswidth = 32; // reg property
+        default hw = na; // field property
+
+
+        /* -----------------------
+         * Register definitions
+         * ----------------------- */
+
+        /* ---- Global Interrupt Enable ---- */
+        reg global_intr_en_t {
+            name = "Per-Type Interrupt Enable Register";
+            desc = "Dedicated register with one bit for each event type that may produce an interrupt.";
+
+            default hw = na;
+            default sw = rw;
+
+            // Global enables by event type.
+            field {desc = "Global enable bit for all events of type 'Error'";       } error_en = 1'b0;
+            field {desc = "Global enable bit for all events of type 'Notification'";} notif_en = 1'b0;
+        };
+
+        /* ---- Error Interrupt Enable ---- */
+        reg error_intr_en_t {
+            name = "Per-Event Interrupt Enable Register";
+            desc = "Dedicated register with one bit for each event that may produce an interrupt.";
+
+            default hw = na;
+            default sw = rw;
+
+            // Per-error enables.
+            field {desc = "Enable bit for Internal Errors";               } error_internal_en = 1'b0;
+        };
+
+        /* ---- Notification Interrupt Enable ---- */
+        reg notif_intr_en_t {
+            name = "Per-Event Interrupt Enable Register";
+            desc = "Dedicated register with one bit for each event that may produce an interrupt.";
+
+            default hw = na;
+            default sw = rw;
+
+            // Per-notification enables.
+            field {desc = "Enable bit for Command Done";} notif_cmd_done_en = 1'b0;
+        };
+
+        /* ---- Error Interrupt Status ---- */
+        reg error_intr_t {
+            name = "Interrupt Status Register type definition";
+            desc = "Single bit indicating occurrence of each interrupt event.
+                    Sticky, level assertion, write-1-to-clear.";
+
+            default precedence = hw;
+            default hw = w;
+            default hwset = true;
+            default sw = rw;
+            default woclr = true;
+            default level intr;
+
+            field {desc = "Internal Errors status bit";                 } error_internal_sts = 1'b0;
+        };
+
+        /* ---- Notification Interrupt Status ---- */
+        reg notif_intr_t {
+            name = "Interrupt Status Register type definition";
+            desc = "Single bit indicating occurrence of each interrupt event.
+                    Sticky, level assertion, write-1-to-clear.";
+
+            default precedence = hw;
+            default hw = w;
+            default hwset = true;
+            default sw = rw;
+            default woclr = true;
+            default level intr;
+
+            field {desc = "Command Done status bit";} notif_cmd_done_sts = 1'b0;
+        };
+
+        /* ---- Aggregated Interrupt Status ---- */
+        reg global_intr_t {
+            name = "Interrupt Status Aggregation Register type definition";
+            desc = "Single bit indicating occurrence of any interrupt event
+                    of a given type. E.g. Notifications and Errors may drive
+                    to two separate interrupt registers. There may be
+                    multiple sources of Notifications or Errors that are
+                    aggregated into a single interrupt pin for that
+                    respective type. That pin feeds through this register
+                    in order to apply a global enablement of that interrupt
+                    event type.
+                    Nonsticky assertion.";
+
+            default hw = w;
+            default sw = r;
+            default nonsticky intr;
+
+            field {desc = "Interrupt Event Aggregation status bit";} agg_sts = 1'b0;
+        };
+
+        /* ---- Error Interrupt Trigger ---- */
+        reg error_intr_trig_t {
+            name = "Interrupt Trigger Register type definition";
+            desc = "Single bit for each interrupt event allows SW to manually
+                    trigger occurrence of that event. Upon SW write, the trigger bit
+                    will pulse for 1 cycle then clear to 0. The pulse on the
+                    trigger register bit results in the corresponding interrupt
+                    status bit being set to 1.";
+
+            default hw = na;
+            default sw = rw;
+            default woset = true;
+            default singlepulse = true;
+
+            field {desc = "Internal Errors trigger bit";               } error_internal_trig = 1'b0;
+        };
+
+        /* ---- Notification Interrupt Trigger ---- */
+        reg notif_intr_trig_t {
+            name = "Interrupt Trigger Register type definition";
+            desc = "Single bit for each interrupt event allows SW to manually
+                    trigger occurrence of that event. Upon SW write, the trigger bit
+                    will pulse for 1 cycle then clear to 0. The pulse on the
+                    trigger register bit results in the corresponding interrupt
+                    status bit being set to 1.";
+
+            default hw = na;
+            default sw = rw;
+            default woset = true;
+            default singlepulse = true;
+
+            field {desc = "Command Done trigger bit";} notif_cmd_done_trig = 1'b0;
+        };
+
+        /* ---- Interrupt Statistics Counter Incrementor ---- */
+        reg intr_count_incr_t {
+            name = "Interrupt Event Count Incrementor";
+            desc = "Trigger the event counter to increment based on observing
+                    the rising edge of an interrupt event input from the
+                    Hardware. The same input signal that causes an interrupt
+                    event to be set (sticky) also causes this signal to pulse
+                    for 1 clock cycle, resulting in the event counter
+                    incrementing by 1 for every interrupt event.
+                    This is implemented as a down-counter (1-bit) that will
+                    decrement immediately on being set - resulting in a pulse";
+
+            default hw = w;
+            default sw = r; // RDL requires SW access; software must ignore this register.
+            default hwset = true;
+            default decrvalue = 1;
+            default counter;
+
+            field {desc = "Pulse mirrors interrupt event occurrence";} pulse = 1'b0;
+        };
+
+        /* ---- Interrupt Statistics Counter ---- */
+        reg intr_count_t {
+            name = "Interrupt Event Counter";
+            desc = "Provides statistics about the number of events that have
+                    occurred.
+                    Will not overflow ('incrsaturate').";
+
+            default sw = rw;
+            default hw = na;
+            default incrvalue = 1;
+            default incrsaturate = true;
+            default counter;
+
+            field {desc = "Count field";} cnt[32] = 32'h0;
+        };
+
+
+        /* ------------------------------------------------- Registers ------------------------------------------------- */
+        // First 9 registers are static and always defined                                                               //
+        global_intr_en_t  global_intr_en_r;      /* 1-bit per event type */                                              //
+        error_intr_en_t   error_intr_en_r;       /* 1-bit per error */                                                   //
+        notif_intr_en_t   notif_intr_en_r;       /* 1-bit per notification */                                            //
+        global_intr_t     error_global_intr_r;   /* 1-bit aggregating all error interrupts with global enable */         //
+        global_intr_t     notif_global_intr_r;   /* 1-bit aggregating all notification interrupts with global enable */  //
+        error_intr_t      error_internal_intr_r; /* Error pending, SW write 1 to clear */                                //
+        notif_intr_t      notif_internal_intr_r; /* Notification pending, SW write 1 to clear */                         //
+        error_intr_trig_t error_intr_trig_r;     /* SW sets error bit for interrupt testing */                           //
+        notif_intr_trig_t notif_intr_trig_r;     /* SW sets notification bit for interrupt testing */                    //
+                                                                                                                         //
+        // Align this set of registers; number of counters is based on peripheral event requirements                     //
+        intr_count_t      error_internal_intr_count_r @0x100;  /* Per error */                                           //
+        intr_count_t      notif_cmd_done_intr_count_r @0x180; /* Per notification */                                     //
+                                                                                                                         //
+        // Reserved to software.  Offset 0x200 leaves room for 32 counters per
+        // event type while keeping the register file within 1 KiB.
+        intr_count_incr_t error_internal_intr_count_incr_r @0x200; /* Per error count incrementor pulse */               //
+        intr_count_incr_t notif_cmd_done_intr_count_incr_r;       /* Per notification count incrementor pulse */         //
+        /* ------------------------------------------------------------------------------------------------------------- */
+
+        /* ---- Reset assignment for Error Events ---- */
+        error_internal_intr_r.error_internal_sts -> resetsignal = hard_reset_b;
+        error_internal_intr_count_r.cnt          -> resetsignal = hard_reset_b;
+        // TODO: Use this same reset for the error incrementor pulse too?
+
+        /* ---- Interrupt Event Dynamic Assignments ---- */
+        error_internal_intr_r.error_internal_sts -> enable = error_intr_en_r.error_internal_en;
+        notif_internal_intr_r.notif_cmd_done_sts -> enable = notif_intr_en_r.notif_cmd_done_en;
+
+        error_internal_intr_r.error_internal_sts -> next   = error_intr_trig_r.error_internal_trig;
+        notif_internal_intr_r.notif_cmd_done_sts -> next   = notif_intr_trig_r.notif_cmd_done_trig;
+
+        // Event hwset signals are implicit module inputs.
+
+        /* ---- Global Interrupt Dynamic Assignments ---- */
+        error_global_intr_r.agg_sts -> enable = global_intr_en_r.error_en;
+        notif_global_intr_r.agg_sts -> enable = global_intr_en_r.notif_en;
+
+        error_global_intr_r.agg_sts -> next = error_internal_intr_r -> intr;
+        notif_global_intr_r.agg_sts -> next = notif_internal_intr_r -> intr;
+
+        /* ---- Event Statistics Tracker Assignments ---- */
+        // Self-clearing one-bit counters turn HW and SW events into pulses
+        // that increment the corresponding statistics counters.
+        error_internal_intr_count_incr_r.pulse -> hwset    = error_internal_intr_r.error_internal_sts -> hwset; // Hardware event.
+        error_internal_intr_count_incr_r.pulse -> next     = error_internal_intr_r.error_internal_sts -> next;  // Software trigger.
+        error_internal_intr_count_incr_r.pulse -> we       = error_internal_intr_r.error_internal_sts -> next;  // Write only on a software trigger.
+        error_internal_intr_count_incr_r.pulse -> decr     = error_internal_intr_count_incr_r.pulse; // Auto-clear to generate pulse output
+        error_internal_intr_count_r.cnt        -> incr     = error_internal_intr_count_incr_r.pulse; // Increment coincides with rising edge of interrupt sts bit
+
+        notif_cmd_done_intr_count_incr_r.pulse -> hwset    = notif_internal_intr_r.notif_cmd_done_sts -> hwset; // Hardware event.
+        notif_cmd_done_intr_count_incr_r.pulse -> next     = notif_internal_intr_r.notif_cmd_done_sts -> next;  // Software trigger.
+        notif_cmd_done_intr_count_incr_r.pulse -> we       = notif_internal_intr_r.notif_cmd_done_sts -> next;  // Write only on a software trigger.
+        notif_cmd_done_intr_count_incr_r.pulse -> decr     = notif_cmd_done_intr_count_incr_r.pulse; // Auto-clear to generate pulse output
+        notif_cmd_done_intr_count_r.cnt        -> incr     = notif_cmd_done_intr_count_incr_r.pulse; // Increment coincides with rising edge of interrupt sts bit
+
+    };
+
+
+    /* -----------------------
+     * Register File instance
+     * ----------------------- */
+    intr_block_t intr_block_rf @0x1800;
+
+    /* ---- RSA CRT Coefficient q^-1 mod p ---- */
+    reg {
+        name = "RSA QINV";
+        desc = "CRT coefficient q^-1 mod p, 64 32-bit registers holding up to
+                2048 bits in big-endian representation.  Used by the Garner
+                recombination step of MODEXP_SEC_CRT.
+                [br] Write-only: this is a SEC class register.  It reads back as
+                zero and is cleared by ZEROIZE, by a debug unlock or scan mode
+                switch, and by reset.";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "CRT coefficient qInv field"; swwe = rsa_crt_key_we; hwclr;} QINV[32] = 32'b0;
+
+    } RSA_QINV[64] @0x00001E00;
+
+    /* ---- RSA CRT Exponent dP ---- */
+    reg {
+        name = "RSA DP";
+        desc = "CRT exponent d mod (p-1), big-endian, half the key width.
+                Write-only, SEC class: reads back as zero, cleared by ZEROIZE,
+                debug unlock or scan-mode switch, and reset.";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "CRT exponent dP field"; swwe = rsa_crt_key_we; hwclr;} DP[32] = 32'b0;
+
+    } RSA_DP[64] @0x00001C00;
+
+    /* ---- RSA CRT Exponent dQ ---- */
+    reg {
+        name = "RSA DQ";
+        desc = "CRT exponent d mod (q-1), big-endian, half the key width.
+                Write-only, SEC class: reads back as zero, cleared by ZEROIZE,
+                debug unlock or scan-mode switch, and reset.";
+
+        default sw = w;
+        default hw = r;
+        default resetsignal = reset_b;
+        field {desc = "CRT exponent dQ field"; swwe = rsa_crt_key_we; hwclr;} DQ[32] = 32'b0;
+
+    } RSA_DQ[64] @0x00001D00;
+};

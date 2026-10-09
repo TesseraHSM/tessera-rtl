@@ -1,0 +1,58 @@
+document:
+  schema: 1.0
+
+# ---------------------------------------------------------------------------
+# Nightly (L1): fixed-seed directed tests and seed-swept random tests.
+# RSA_normal_test runs all phases together and emits the full cycle report.
+# ---------------------------------------------------------------------------
+contents:
+  - generator:
+      tags: ["L1", "uvmf_rsa", "directed", "kat"]
+      path: ""
+      weight: 100
+      generations: 1
+      formats:
+        generate: "reseed {template}.yml -seed 1"
+        path: "{template_basename}__1.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_kat_only_test
+  - generator:
+      tags: ["L1", "uvmf_rsa", "directed", "crt"]
+      path: ""
+      weight: 100
+      generations: 1
+      formats:
+        generate: "reseed {template}.yml -seed 1"
+        path: "{template_basename}__1.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_crt_only_test
+  - generator:
+      tags: ["L1", "uvmf_rsa", "directed", "error"]
+      path: ""
+      weight: 100
+      generations: 1
+      formats:
+        generate: "reseed {template}.yml -seed 1"
+        path: "{template_basename}__1.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_err_only_test
+  - generator:
+      tags: ["L1", "uvmf_rsa", "random"]
+      path: ""
+      weight: 100
+      generations: 4
+      formats:
+        generate: "reseed {template}.yml -seed {seed}"
+        path: "{template_basename}__{seed}.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_random_only_test
+  - generator:
+      tags: ["L1", "uvmf_rsa", "directed", "full"]
+      path: ""
+      weight: 100
+      generations: 1
+      formats:
+        generate: "reseed {template}.yml -seed 1"
+        path: "{template_basename}__1.yml"
+      templates:
+        - $TESSERA_ROOT/src/rsa_4k_3k_2k/uvmf_rsa/uvmf_template_output/project_benches/RSA/tb/tests/src/RSA_normal_test

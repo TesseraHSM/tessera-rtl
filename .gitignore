@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.venv/
+build/
+simv
+simv.daidir/
+csrc/
+*.vcd
+*.fsdb
+*.vdb/
+results.tsv
+
+# ---- from the vendored-block import toolchain ----
+# Local clone of caliptra-rtl used by tools/scripts/rename/import_block.sh
+.upstream-cache/
+
+# Simulator / lint droppings
+obj_dir/
+*.log
+*.vcd
+*.fst

@@ -1,0 +1,79 @@
+# Tessera vendored-block provenance record -- GENERATED, do not edit by hand.
+#
+# To review what changed upstream since this import:
+#   git -C <caliptra-rtl> log --oneline 2560d3f842e8980f65ba585a4eff54fd16d19c71..origin/main -- src/sha256_masked/rtl 
+#
+block: sha256_masked
+prefix: "tessera_"
+macro_prefix: "TESSERA_"
+imported_at: "2026-10-08T21:01:03Z"
+
+upstream:
+  repo: "https://github.com/chipsalliance/caliptra-rtl.git"
+  branch: "main"
+  commit: "2560d3f842e8980f65ba585a4eff54fd16d19c71"
+  commit_date: "2026-08-27T06:52:43-07:00"
+  commit_subject: " [RTL] Add HMAC-DRBG-SHA-256 (hmac256_drbg)  (#1340)"
+  working_tree_dirty: false
+  subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/sha256_masked/rtl", tessera: "src/sha2_256_all_modes_masked/rtl" }
+  collateral_subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/sha256_masked/tb", tessera: "src/sha2_256_all_modes_masked/tb" }
+  compile_order_from: src/sha256_masked/config/sha256_masked_core.vf
+
+importer:
+  script: tools/scripts/rename/rename_sha256_masked.sh
+  library_version: "2.1.1"
+  toolchain_fingerprint: "bc2e8c8b8fb31781592cd23213d5dcddba3f1cffb68d6dc9cd20489cfe78a4c0"
+  bash: "4.4.20(1)-release"
+  perl: "v5.26.3"
+
+policy:
+  rename_scope: "synthesized design material only"
+  stem_renames:  # block-name stems rewritten under the prefix (repo-wide)
+    - "hmac=hmac512"
+  stem_keep:  # names that merely share the leading token and keep it
+    - "hmac_drbg"
+  synth_subtrees:  # identifiers declared here are renamed; everything else only references them
+    - "src/sha2_256_all_modes_masked/rtl"
+  excluded_globs:
+    - "*_reg_uvm.sv"
+    - "*.rdl"
+  artifact_globs:  # build/sim outputs, regenerated not vendored
+    - "*.ucdb"
+    - "*.exe"
+    - "*.o"
+    - "*.a"
+    - "*.so"
+    - "*.pyc"
+    - "*.wlf"
+    - "*.vstf"
+    - "*.vcd"
+    - "*.fsdb"
+  cross_block_identifiers:
+    - "module:sha256_k_constants"
+  environment_config_macros:
+    []
+  generator_inputs:  # fed to a code generator, must stay byte-identical to upstream
+    []
+  keep_list:  # shared Tessera platform identifiers, deliberately NOT prefixed
+    - "kv_defines_pkg"
+    - "kv_read_t"
+    - "kv_write_t"
+    - "kv_error_code_e"
+    - "uvm_pkg"
+
+artifacts:
+  block_dir: src/sha2_256_all_modes_masked
+  source_dirs:
+    - src/sha2_256_all_modes_masked/rtl
+  collateral_dirs:  # imported whole, looser rename contract
+    - src/sha2_256_all_modes_masked/tb
+  filelist: src/sha2_256_all_modes_masked/config/tessera_sha256_masked_core.vf
+  rename_map: src/sha2_256_all_modes_masked/revinfo.map
+  generated:  # produced by the import; no upstream counterpart
+    - src/sha2_256_all_modes_masked/config/tessera_sha256_masked_core.vf
+
+content:  # engine-level summary; the file list is the committed tree itself
+  source_files: 4
+  renamed_files: 5

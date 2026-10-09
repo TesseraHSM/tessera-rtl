@@ -1,0 +1,12 @@
+# Tessera identifier rename map for block 'sha512_masked' (prefix: tessera_)
+macro	CALIPTRA_SHA512_MASKED_DEFINES_PKG	TESSERA_CALIPTRA_SHA512_MASKED_DEFINES_PKG
+module	sha512_core	tessera_sha512_core
+module	sha512_h_constants	tessera_sha512_h_constants
+module	sha512_k_constants	tessera_sha512_k_constants
+module	sha512_masked_core	tessera_sha512_masked_core
+module	sha512_masked_w_mem	tessera_sha512_masked_w_mem
+module	sha512_w_mem	tessera_sha512_w_mem
+package	sha512_masked_defines_pkg	tessera_sha512_masked_defines_pkg
+file	src/sha2_512_384_all_modes_masked/rtl/sha512_masked_core.sv	src/sha2_512_384_all_modes_masked/rtl/tessera_sha512_masked_core.sv
+file	src/sha2_512_384_all_modes_masked/rtl/sha512_masked_defines_pkg.sv	src/sha2_512_384_all_modes_masked/rtl/tessera_sha512_masked_defines_pkg.sv
+file	src/sha2_512_384_all_modes_masked/rtl/sha512_masked_w_mem.sv	src/sha2_512_384_all_modes_masked/rtl/tessera_sha512_masked_w_mem.sv

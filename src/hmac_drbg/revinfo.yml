@@ -1,0 +1,83 @@
+# Tessera vendored-block provenance record -- GENERATED, do not edit by hand.
+#
+# To review what changed upstream since this import:
+#   git -C <caliptra-rtl> log --oneline b9ac0e466758d6ba8eac562d8acc3bc5483a2f6a..origin/main -- src/hmac_drbg/rtl src/hmac_drbg/coverage 
+#
+block: hmac_drbg
+prefix: "tessera_"
+macro_prefix: "TESSERA_"
+imported_at: "2026-10-08T20:58:25Z"
+
+upstream:
+  repo: "https://github.com/chipsalliance/caliptra-rtl.git"
+  branch: "main"
+  commit: "b9ac0e466758d6ba8eac562d8acc3bc5483a2f6a"
+  commit_date: "2026-10-06T08:53:38-07:00"
+  commit_subject: "Feat/stash bank rfc 673 (#1395)"
+  working_tree_dirty: false
+  subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/hmac_drbg/rtl", tessera: "src/hmac_drbg/rtl" }
+    - { upstream: "src/hmac_drbg/coverage", tessera: "src/hmac_drbg/coverage" }
+  collateral_subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/hmac_drbg/tb", tessera: "src/hmac_drbg/tb" }
+    - { upstream: "src/hmac_drbg/coverage/config", tessera: "src/hmac_drbg/coverage/config" }
+    - { upstream: "src/hmac_drbg/stimulus", tessera: "src/hmac_drbg/stimulus" }
+  compile_order_from: src/hmac_drbg/config/hmac_drbg.vf
+
+importer:
+  script: tools/scripts/rename/rename_hmac_drbg.sh
+  library_version: "2.1.1"
+  toolchain_fingerprint: "6c9da87b4247323167d969654ec26abb1e4435d773cc5a77b652cf8c0402610f"
+  bash: "4.4.20(1)-release"
+  perl: "v5.26.3"
+
+policy:
+  rename_scope: "synthesized design material only"
+  stem_renames:  # block-name stems rewritten under the prefix (repo-wide)
+    - "hmac=hmac512"
+  stem_keep:  # names that merely share the leading token and keep it
+    - "hmac_drbg"
+  synth_subtrees:  # identifiers declared here are renamed; everything else only references them
+    - "src/hmac_drbg/rtl"
+  excluded_globs:
+  artifact_globs:  # build/sim outputs, regenerated not vendored
+    - "*.ucdb"
+    - "*.exe"
+    - "*.o"
+    - "*.a"
+    - "*.so"
+    - "*.pyc"
+    - "*.wlf"
+    - "*.vstf"
+    - "*.vcd"
+    - "*.fsdb"
+  cross_block_identifiers:
+    - "module:hmac_core"
+  environment_config_macros:
+    []
+  generator_inputs:  # fed to a code generator, must stay byte-identical to upstream
+    []
+  keep_list:  # shared Tessera platform identifiers, deliberately NOT prefixed
+    - "kv_defines_pkg"
+    - "kv_read_t"
+    - "kv_write_t"
+    - "kv_error_code_e"
+    - "uvm_pkg"
+
+artifacts:
+  block_dir: src/hmac_drbg
+  source_dirs:
+    - src/hmac_drbg/rtl
+    - src/hmac_drbg/coverage
+  collateral_dirs:  # imported whole, looser rename contract
+    - src/hmac_drbg/tb
+    - src/hmac_drbg/coverage/config
+    - src/hmac_drbg/stimulus
+  filelist: src/hmac_drbg/config/tessera_hmac_drbg.vf
+  rename_map: src/hmac_drbg/revinfo.map
+  generated:  # produced by the import; no upstream counterpart
+    - src/hmac_drbg/config/tessera_hmac_drbg.vf
+
+content:  # engine-level summary; the file list is the committed tree itself
+  source_files: 11
+  renamed_files: 12

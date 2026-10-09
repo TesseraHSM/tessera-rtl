@@ -1,0 +1,99 @@
+uvmf:
+  interfaces:
+    RSA_in:
+      clock: clk
+      config_constraints: []
+      config_vars: []
+      existing_library_component: 'True'
+      gen_inbound_streaming_driver: 'False'
+      hdl_pkg_parameters: []
+      hdl_typedefs:
+      - name: rsa_in_test_transactions
+        type: enum bit[2:0] {rsa_reset_test = 3'b000, rsa_normal_test = 3'b001, rsa_otf_reset_test = 3'b010, rsa_kat_test = 3'b011}
+      - name: rsa_in_op_transactions
+        type: enum bit[2:0] {rsa_op_ldmod = 3'b001, rsa_op_modexp_pub = 3'b010, rsa_op_modexp_sec = 3'b011, rsa_op_mul = 3'b100, rsa_op_genprime = 3'b101, rsa_op_modexp_sec_crt = 3'b110 }
+      hvl_pkg_parameters: []
+      hvl_typedefs: []
+      parameters:
+      - name: AHB_ADDR_WIDTH
+        type: int
+        value: '32'
+      - name: AHB_DATA_WIDTH
+        type: int
+        value: '32'
+      ports:
+      - dir: output
+        name: rsa_rst_n
+        reset_value: '''bz'
+        width: '1'
+      - dir: output
+        name: haddr
+        reset_value: '''bz'
+        width: AHB_ADDR_WIDTH
+      - dir: output
+        name: hwdata
+        reset_value: '''bz'
+        width: AHB_DATA_WIDTH
+      - dir: output
+        name: hsel
+        reset_value: '''bz'
+        width: '1'
+      - dir: output
+        name: hwrite
+        reset_value: '''bz'
+        width: '1'
+      - dir: output
+        name: hready
+        reset_value: '''bz'
+        width: '1'
+      - dir: output
+        name: htrans
+        reset_value: '''bz'
+        width: '2'
+      - dir: output
+        name: hsize
+        reset_value: '''bz'
+        width: '3'
+      - dir: input
+        name: hrdata
+        reset_value: '''bz'
+        width: AHB_DATA_WIDTH
+      - dir: input
+        name: hreadyout
+        reset_value: '''bz'
+        width: '1'
+      - dir: output
+        name: transaction_flag_out_monitor
+        reset_value: '''bz'
+        width: '1'
+      - dir: output
+        name: test
+        reset_value: '''bz'
+        width: '3'
+      - dir: output
+        name: op
+        reset_value: '''bz'
+        width: '2'
+      reset: rst_n
+      reset_assertion_level: 'False'
+      transaction_constraints:
+      - comment: ''
+        name: rsa_valid_test_constraints
+        value: '{ test inside {rsa_normal_test, rsa_otf_reset_test, rsa_kat_test}; }'
+      - comment: ''
+        name: rsa_valid_op_constraints
+        value: '{ op inside {rsa_op_mul, rsa_op_ldmod, rsa_op_modexp_pub, rsa_op_modexp_sec}; }'
+      transaction_vars:
+      - comment: ''
+        iscompare: 'True'
+        isrand: 'True'
+        name: test
+        type: rsa_in_test_transactions
+        unpacked_dimension: ''
+      - comment: ''
+        iscompare: 'True'
+        isrand: 'True'
+        name: op
+        type: rsa_in_op_transactions
+        unpacked_dimension: ''
+      use_dpi_link: 'False'

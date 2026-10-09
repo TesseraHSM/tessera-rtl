@@ -1,0 +1,17 @@
+# Tessera identifier rename map for block 'hmac512' (prefix: tessera_)
+macro	CLP_CSR_HMAC_KEY_DWORDS	TESSERA_CLP_CSR_HMAC_KEY_DWORDS
+macro	HMAC_PARAM_PKG	TESSERA_HMAC512_PARAM_PKG
+module	hmac	tessera_hmac512
+module	hmac_core	tessera_hmac512_core
+module	hmac_ctrl	tessera_hmac512_ctrl
+module	hmac_reg	tessera_hmac512_reg
+module	sha512_masked_core	tessera_sha512_masked_core
+package	hmac_param_pkg	tessera_hmac512_param_pkg
+package	hmac_reg_pkg	tessera_hmac512_reg_pkg
+file	src/hmac_512_384/rtl/hmac.sv	src/hmac_512_384/rtl/tessera_hmac512.sv
+file	src/hmac_512_384/rtl/hmac_core.sv	src/hmac_512_384/rtl/tessera_hmac512_core.sv
+file	src/hmac_512_384/rtl/hmac_ctrl.sv	src/hmac_512_384/rtl/tessera_hmac512_ctrl.sv
+file	src/hmac_512_384/rtl/hmac_param_pkg.sv	src/hmac_512_384/rtl/tessera_hmac512_param_pkg.sv
+file	src/hmac_512_384/rtl/hmac_reg.sv	src/hmac_512_384/rtl/tessera_hmac512_reg.sv
+file	src/hmac_512_384/rtl/hmac_reg_pkg.sv	src/hmac_512_384/rtl/tessera_hmac512_reg_pkg.sv
+file	(generated)	tessera_hmac512_config.svh

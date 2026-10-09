@@ -1,0 +1,92 @@
+# Tessera vendored-block provenance record -- GENERATED, do not edit by hand.
+#
+# To review what changed upstream since this import:
+#   git -C <caliptra-rtl> log --oneline b9ac0e466758d6ba8eac562d8acc3bc5483a2f6a..origin/main -- src/ecc/rtl src/ecc/coverage 
+#
+block: ecc
+prefix: "tessera_"
+macro_prefix: "TESSERA_"
+imported_at: "2026-10-08T20:57:42Z"
+
+upstream:
+  repo: "https://github.com/chipsalliance/caliptra-rtl.git"
+  branch: "main"
+  commit: "b9ac0e466758d6ba8eac562d8acc3bc5483a2f6a"
+  commit_date: "2026-10-06T08:53:38-07:00"
+  commit_subject: "Feat/stash bank rfc 673 (#1395)"
+  working_tree_dirty: false
+  subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/ecc/rtl", tessera: "src/ecc_ecdsa_ecdhe/rtl" }
+    - { upstream: "src/ecc/coverage", tessera: "src/ecc_ecdsa_ecdhe/coverage" }
+  collateral_subtrees:  # upstream path -> Tessera path
+    - { upstream: "src/ecc/tb", tessera: "src/ecc_ecdsa_ecdhe/tb" }
+    - { upstream: "src/ecc/coverage/config", tessera: "src/ecc_ecdsa_ecdhe/coverage/config" }
+    - { upstream: "src/ecc/stimulus", tessera: "src/ecc_ecdsa_ecdhe/stimulus" }
+    - { upstream: "src/ecc/uvmf_ecc", tessera: "src/ecc_ecdsa_ecdhe/uvmf_ecc" }
+  compile_order_from: src/ecc/config/ecc_top.vf
+
+importer:
+  script: tools/scripts/rename/rename_ecc.sh
+  library_version: "2.1.1"
+  toolchain_fingerprint: "9187fbc5355c39b382cbc9f7a4b8de7c6941c44e8d5c7427b2a353bd8b351902"
+  bash: "4.4.20(1)-release"
+  perl: "v5.26.3"
+
+policy:
+  rename_scope: "synthesized design material only"
+  stem_renames:  # block-name stems rewritten under the prefix (repo-wide)
+    - "hmac=hmac512"
+  stem_keep:  # names that merely share the leading token and keep it
+    - "hmac_drbg"
+  synth_subtrees:  # identifiers declared here are renamed; everything else only references them
+    - "src/ecc_ecdsa_ecdhe/rtl"
+  excluded_globs:
+    - "*_reg_uvm.sv"
+    - "*.rdl"
+  artifact_globs:  # build/sim outputs, regenerated not vendored
+    - "*.ucdb"
+    - "*.exe"
+    - "*.o"
+    - "*.a"
+    - "*.so"
+    - "*.pyc"
+    - "*.wlf"
+    - "*.vstf"
+    - "*.vcd"
+    - "*.fsdb"
+  cross_block_identifiers:
+    - "module:hmac_drbg"
+    - "package:hmac_param_pkg"
+  environment_config_macros:
+    []
+  generator_inputs:  # fed to a code generator, must stay byte-identical to upstream
+    - "src/ecc/uvmf_ecc/ECC_bench.yaml"
+    - "src/ecc/uvmf_ecc/ECC_environment.yaml"
+    - "src/ecc/uvmf_ecc/ECC_in_interface.yaml"
+    - "src/ecc/uvmf_ecc/ECC_out_interface.yaml"
+    - "src/ecc/uvmf_ecc/ECC_util_comp_ECC_predictor.yaml"
+  keep_list:  # shared Tessera platform identifiers, deliberately NOT prefixed
+    - "kv_defines_pkg"
+    - "kv_read_t"
+    - "kv_write_t"
+    - "kv_error_code_e"
+    - "uvm_pkg"
+
+artifacts:
+  block_dir: src/ecc_ecdsa_ecdhe
+  source_dirs:
+    - src/ecc_ecdsa_ecdhe/rtl
+    - src/ecc_ecdsa_ecdhe/coverage
+  collateral_dirs:  # imported whole, looser rename contract
+    - src/ecc_ecdsa_ecdhe/tb
+    - src/ecc_ecdsa_ecdhe/coverage/config
+    - src/ecc_ecdsa_ecdhe/stimulus
+    - src/ecc_ecdsa_ecdhe/uvmf_ecc
+  filelist: src/ecc_ecdsa_ecdhe/config/tessera_ecc_top.vf
+  rename_map: src/ecc_ecdsa_ecdhe/revinfo.map
+  generated:  # produced by the import; no upstream counterpart
+    - src/ecc_ecdsa_ecdhe/config/tessera_ecc_top.vf
+
+content:  # engine-level summary; the file list is the committed tree itself
+  source_files: 190
+  renamed_files: 191

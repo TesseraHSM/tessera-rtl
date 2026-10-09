@@ -1,0 +1,79 @@
+---
+provides: [uvmf_rsa]
+schema_version: 2.4.0
+requires:
+  - uvmf_lib
+  - tessera_rsa_top
+  # Coverage sources are always compiled; covergroups are gated by FCOV.
+  - rsa_coverage
+targets:
+  tb:
+    directories:
+      - ${COMPILE_ROOT}/../rtl
+      - ${CALIPTRA_LIBS_ROOT}/rtl
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/environment_packages/RSA_env_pkg/src
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg/src
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg/src
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/environment_packages/RSA_env_pkg
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/parameters
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/sequences
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/tests
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/testbench
+    files:
+#      - ${COMPILE_ROOT}/../rtl/tessera_rsa_reg_uvm.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg/RSA_in_pkg_hdl.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg/RSA_in_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg/src/RSA_in_driver_bfm.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg/src/RSA_in_if.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_in_pkg/src/RSA_in_monitor_bfm.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg/RSA_out_pkg_hdl.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg/RSA_out_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg/src/RSA_out_driver_bfm.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg/src/RSA_out_if.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/interface_packages/RSA_out_pkg/src/RSA_out_monitor_bfm.sv
+#      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/environment_packages/RSA_env_pkg/registers/RSA_reg_model_top_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/verification_ip/environment_packages/RSA_env_pkg/RSA_env_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/parameters/RSA_parameters_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/sequences/RSA_sequences_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/tests/RSA_tests_pkg.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/testbench/hdl_top.sv
+      - ${COMPILE_ROOT}/uvmf_template_output/project_benches/RSA/tb/testbench/hvl_top.sv
+    tops:
+      - hdl_top
+      - hvl_top
+      # Explicit top required for VCS to elaborate the uninstantiated coverage
+      # bind; otherwise a VDB can be written without functional groups.
+      # The module body is gated by FCOV.
+      - rsa_top_cov_bind
+  # KAT/CRT sequences open the shared rsa_top_tb vectors by basename,
+  # so stage them in the simulation working directory.
+  sim:
+    pre_exec: 'echo "[PRE-EXEC] Copying RSA test vectors to $PWD" && cp $COMPILE_ROOT/../tb/test_vectors/rsa_modexp_*.hex $COMPILE_ROOT/../tb/test_vectors/rsa_crt_vectors_*.hex .'
+global:
+  tool:
+    vcs:
+      default:
+        - '-assert svaext'
+        - +define+CLP_ASSERT_ON
+        - +define+SIMULATION
+        # Enable the CRT datapath for signoff; the default-disabled build
+        # rejects MODEXP_SEC_CRT with ERR_CRT_UNAVAIL.
+        - +define+RSA_CRT_ENABLE_CONFIG=1
+        # Enable functional coverage here, keeping sampling overhead out of
+        # the directed rsa_top_tb cycle-count measurement path.
+        - +define+FCOV
+        #- '-v2k_generate'
+        #- '-timescale=1ns/1ps'
+        - '-noinherit_timescale=1ns/1ps'
+        #- '-ucli -i dump.ucli'
+      #sim:
+        #- '-ucli -i dump.ucli'
+        # Generated code discards the $fgets return value.
+        - '+warn=noRVOSFD'
+        # Generated headers repeat package imports.
+        - '-suppress=SV-LCM-PPWI'
+      elab:
+        # Generated inout ports are driven below the instantiation layer.
+        - '-suppress=TFIPC'
